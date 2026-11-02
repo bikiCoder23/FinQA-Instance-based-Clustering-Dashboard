@@ -665,7 +665,7 @@ def main():
                 var_name='Paradigm', value_name='Cognitive Load'
             )
             paradigm_map = {
-                'interprets_score': 'Interprets\n(Domain Jargon)',
+                'interprets_score': 'Interprets\n(Domain Knowledge)',
                 'retrieves_score': 'Retrieves\n(Evidence Nav)',
                 'solves_score': 'Solves\n(Math Execution)'
             }
