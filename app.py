@@ -164,35 +164,55 @@ class FinQAClusteringEngine:
         else:
             modality = "text-only"
 
-        is_chained = False
-        is_aggregation = False
-        dependency_depth = 1
+                hop_count = len(gold_inds) if gold_inds else (2 if modality == "table-text" else 1)
+
+        # 2. Operations & Mathematical Complexity Evaluation (Rule 1)
+        raw_ops = re.findall(r'[a-zA-Z\-]+\([^)]+\)', program) if program else []
+        is_chained = any('#' in op for op in raw_ops)
+        is_aggregation = any(any(op.startswith(agg) for agg in cls.AGGREGATION_OPS) for op in raw_ops)
         
-        if program:
-            raw_ops = [op.strip() for op in program.split("),") if op.strip()]
-            for rop in raw_ops:
-                op_name = rop.split("(")[0].strip()
-                if op_name in cls.AGGREGATION_OPS:
-                    is_aggregation = True
-                if "#" in rop:
-                    is_chained = True
-            dependency_depth = max(len(raw_ops), 1)
-        else:
-            is_aggregation = any(w in q_text for w in ["sum of", "total of all", "average", "highest", "lowest"])
-            is_chained = any(w in q_text for w in ["percentage change", "growth rate", "adjusted margin", "after tax"])
-            dependency_depth = 2 if is_chained else 1
+        # Filter out trivial identity normalizations like divide(100, 100) or divide(1000, 1000)
+        non_trivial_ops = []
+        for rop in raw_ops:
+            cleaned = rop.replace(" ", "")
+            if any(cleaned == f"divide({v},{v})" for v in ["100", "1000", "10", "1"]):
+                continue
+            non_trivial_ops.append(rop)
 
-        if gold_inds:
-            hop_count = len(gold_inds)
-        else:
-            hop_count = 2 if (modality == "table-text" or is_chained) else 1
-            if any(cue in q_text for cue in cls.MULTI_HOP_CUES):
-                hop_count = max(hop_count, 2)
+        is_complex_multistep_math = len(non_trivial_ops) >= 2
+        dependency_depth = max(len(non_trivial_ops), 1)
 
+        # 3. Row Index Inspection for Table Ratio Disambiguation (Rule 2)
+        table_row_indices = []
+        for k in gold_inds.keys():
+            if "table" in k.lower():
+                matches = re.findall(r'\d+', k)
+                if matches:
+                    table_row_indices.append(int(matches[0]))
+
+        has_multiple_table_rows = len(set(table_row_indices)) > 1
+        has_single_table_row = len(set(table_row_indices)) == 1
+
+        is_part_to_whole_cue = any(w in q_text for w in [
+            "comprised of", "percentage of total", "portion of", "share of", 
+            "out of", "percent of total", "as a percentage of", "component of"
+        ])
+        is_temporal_growth_cue = any(w in q_text for w in [
+            "percentage change", "percent increase", "percent decrease", 
+            "growth rate", "change from", "increase from", "decrease from"
+        ])
+        is_ratio_cue = any(w in q_text for w in ["percentage", "percent", "ratio", "margin", "rate"])
+
+        is_cross_row_ratio = has_multiple_table_rows or (is_part_to_whole_cue and modality == "table-only")
+        is_single_row_temporal = (has_single_table_row and (is_temporal_growth_cue or is_ratio_cue)) or (
+            is_temporal_growth_cue and not is_cross_row_ratio and modality == "table-only"
+        )
+
+        # 4. Paradigms of LLM Functioning Scoring Profile
         s_interprets = 0.4
         if any(w in q_text for w in ["margin", "diluted", "fair value", "basis points", "ebitda", "amortization"]):
             s_interprets += 0.3
-        if any(w in q_text for w in ["percentage change", "increase", "decrease", "ratio"]):
+        if is_ratio_cue or is_temporal_growth_cue:
             s_interprets += 0.2
         s_interprets = min(s_interprets, 1.0)
 
@@ -210,59 +230,75 @@ class FinQAClusteringEngine:
             s_solves += 0.30
         if is_aggregation:
             s_solves += 0.25
-        if "divide" in program or "exp" in program or "%" in q_text:
+        if "divide" in program or "%" in q_text:
             s_solves += 0.15
         s_solves = min(s_solves, 1.0)
 
-        multi_hop_score = 0.0
-        numerical_score = 0.0
-
+        # 5. High-Accuracy Decision Logic Applying Rule 1 & Rule 2
+        # Rule 1 Check: Cross-Modal Table + Text
         if modality == "table-text":
-            multi_hop_score += 0.50
-        if hop_count >= 2:
-            multi_hop_score += 0.25
-        if any(cue in q_text for cue in cls.MULTI_HOP_CUES):
-            multi_hop_score += 0.20
-        if is_chained and modality != "table-only":
-            multi_hop_score += 0.15
-
-        if modality == "table-only" and hop_count <= 2 and not any(cue in q_text for cue in cls.MULTI_HOP_CUES):
-            numerical_score += 0.40
-        if is_aggregation:
-            numerical_score += 0.45
-        if any(cue in q_text for cue in cls.NUMERICAL_RATIO_CUES) and modality == "table-only":
-            numerical_score += 0.30
-        if dependency_depth == 1 and modality != "table-text":
-            numerical_score += 0.35
-
-        if multi_hop_score > numerical_score or modality == "table-text":
             cluster = "Multi-hop QA"
-            confidence = min(0.65 + (multi_hop_score - numerical_score) * 0.4, 0.98)
-            if modality == "table-text":
-                sub_category = "Cross-Modal Hybrid Hop (Table + Text)"
-                rationale = "Requires synthesizing disclosures across unstructured narrative text and the structured financial table."
-            elif is_chained:
-                sub_category = "Chained Intermediate Dependency Hop"
-                rationale = "Requires multi-step sequential reasoning where an intermediate result must be computed and forwarded as input to a subsequent hop."
-            elif modality == "text-only" and hop_count >= 2:
-                sub_category = "Dispersed Multi-Sentence Text Navigation"
-                rationale = "Requires retrieving and synthesizing multiple distinct sentences dispersed across narrative disclosure paragraphs."
-            else:
-                sub_category = "Multi-Row Tabular Bridge"
-                rationale = "Requires navigating across non-contiguous table rows or segment items to reconcile comparative metrics."
-        else:
+            confidence = 0.98
+            sub_category = "Cross-Modal Hybrid Hop (Table + Text)"
+            rationale = "Requires synthesizing disclosures across unstructured narrative text and the structured financial table."
+
+        # Rule 1 Check: Dispersed Multi-Sentence Text Navigation (>= 2 sentences)
+        elif modality == "text-only" and hop_count >= 2:
+            cluster = "Multi-hop QA"
+            confidence = 0.88
+            sub_category = "Dispersed Multi-Sentence Text Navigation"
+            rationale = "Requires retrieving and synthesizing multiple distinct sentences dispersed across narrative disclosure paragraphs."
+
+        # Rule 2 Check: Single-Row Horizontal Temporal Ratio
+        elif modality == "table-only" and is_single_row_temporal:
             cluster = "Numerical QA"
-            confidence = min(0.65 + (numerical_score - multi_hop_score) * 0.4, 0.98)
-            if is_aggregation:
-                sub_category = "Tabular Aggregation (Sum/Avg/Min/Max)"
-                rationale = "Direct symbolic aggregation over a localized table segment or row line-items."
-            elif any(cue in q_text for cue in cls.NUMERICAL_RATIO_CUES):
-                sub_category = "Single-Row Ratio / Percentage Change"
-                rationale = "Evidence is co-located in a single tabular row; cognitive bottleneck is formulating the correct percentage or ratio formula."
-            elif dependency_depth == 1:
-                sub_category = "Single-Fact Direct Arithmetic"
-                rationale = "Single-hop point lookup followed by elementary arithmetic execution."
+            confidence = 0.95
+            sub_category = "Single-Row Temporal Ratio"
+            rationale = "Evidence is co-located in a single tabular row across reporting periods; cognitive bottleneck is formulating the horizontal percentage or growth rate formula."
+
+        # Rule 2 Check: Cross-Row Vertical Column Ratio (Part-to-Whole)
+        elif modality == "table-only" and is_cross_row_ratio:
+            if not is_complex_multistep_math:
+                cluster = "Numerical QA"
+                confidence = 0.96
+                sub_category = "Cross-Row Column Ratio (Part-to-Whole)"
+                rationale = "Evidence requires retrieving distinct rows (component and total) within the table; classified as Numerical QA because it executes a direct single-step division without intermediate chained dependencies."
             else:
+                cluster = "Multi-hop QA"
+                confidence = 0.92
+                sub_category = "Multi-Row Tabular Bridge"
+                rationale = "Requires navigating across multiple distinct table rows combined with multi-step sequential reasoning."
+
+        # Rule 1 Check: Single-Fact (1 Hop) with Direct Arithmetic vs Complex Multi-Step Math
+        elif hop_count == 1 and not is_complex_multistep_math:
+            cluster = "Numerical QA"
+            confidence = 0.92
+            sub_category = "Single-Fact Direct Arithmetic"
+            rationale = "Evidence is co-located in a single sentence or table row; classified as Numerical QA because the computation is direct single-fact arithmetic (with elementary unit normalization) without multi-step complex mathematics."
+
+        elif hop_count == 1 and is_complex_multistep_math:
+            cluster = "Multi-hop QA"
+            confidence = 0.85
+            sub_category = "Multi-Step Complex Mathematical Reasoning"
+            rationale = "Evidence is localized to a single sentence or table row but requires complex multi-step mathematical composition and intermediate state evaluation."
+
+        # Table Row Aggregations
+        elif is_aggregation and modality == "table-only":
+            cluster = "Numerical QA"
+            confidence = 0.94
+            sub_category = "Tabular Aggregation (Sum/Avg/Min/Max)"
+            rationale = "Direct symbolic aggregation over a localized table segment or row line-items."
+
+        # General Multi-Fact vs Localized
+        else:
+            if hop_count >= 2 or is_complex_multistep_math:
+                cluster = "Multi-hop QA"
+                confidence = 0.82
+                sub_category = "Multi-Row Tabular Bridge" if modality == "table-only" else "Chained Intermediate Dependency Hop"
+                rationale = "Requires multi-fact evidence traversal and sequential dependency resolution."
+            else:
+                cluster = "Numerical QA"
+                confidence = 0.86
                 sub_category = "Co-Located Multi-Metric Operation"
                 rationale = "All quantitative parameters are co-located in the same immediate context; primary challenge is arithmetic execution."
 
@@ -505,7 +541,7 @@ def main():
                 st.caption(f"Confidence: **{int(current_row['confidence'] * 100)}%**")
 
             # Sub-category & Rationale
-            st.info(f"**Sub-Category:** {current_row['sub_category']}  \n**Modality:** `{current_row['modality']}` | **Hops:** `{current_row['hop_count']}` | **Chained Program:** `{current_row['is_chained']}`  \n**Human Auditor Rationale:** {current_row['rationale']}")
+            st.info(f"**Sub-Category:** {current_row['sub_category']}  \n**Modality:** `{current_row['modality']}` | **Retrieval Hops:** `{current_row['hop_count']}` | **Chained Program:** `{current_row['is_chained']}`  \n**Human Auditor Rationale:** {current_row['rationale']}")
 
             # Cognitive Load Gauges
             m1, m2, m3 = st.columns(3)
