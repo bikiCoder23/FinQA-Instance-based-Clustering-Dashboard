@@ -164,7 +164,7 @@ class FinQAClusteringEngine:
         else:
             modality = "text-only"
 
-                hop_count = len(gold_inds) if gold_inds else (2 if modality == "table-text" else 1)
+        hop_count = len(gold_inds) if gold_inds else (2 if modality == "table-text" else 1)
 
         # 2. Operations & Mathematical Complexity Evaluation (Rule 1)
         raw_ops = re.findall(r'[a-zA-Z\-]+\([^)]+\)', program) if program else []
