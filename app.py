@@ -817,7 +817,7 @@ def main():
             st.pyplot(fig_step2)
 
         with col_h3:
-            fig1, ax1 = plt.subplots(figsize=((6.5, 4.2))
+            fig1, ax1 = plt.subplots(figsize=(6.5, 4.2))
             c_counts = df_clustered['tier3_qa_type'].value_counts()
             labels = [f"{k}\n({v:,} | {v/total_n:.1%})" for k, v in c_counts.items()]
             ax1.pie(
