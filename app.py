@@ -58,11 +58,12 @@ st.markdown("""
         font-size: 0.9rem;
     }
     .brief-context-box {
-        background-color: #F1F5F9;
+        background-color: #2A4A3C;
         border-left: 5px solid #0EA5E9;
         border-radius: 6px;
         padding: 14px 18px;
         margin: 12px 0 18px 0;
+        font-family: sans-serif;
     }
     .hierarchy-tag {
         background-color: #E2E8F0;
@@ -672,9 +673,9 @@ def main():
                 st.markdown(f"**Hierarchy Path:** `{current_row['hierarchy_path']}`")
             with c_top2:
                 if current_row['tier3_qa_type'] == "Multi-hopQA":
-                    st.markdown('<div style="text-align:right;"><span class="badge-multihop">🌐 Multi-hopQA</span></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="text-align:right;"><span class="badge-multihop">Multi-hopQA</span></div>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<div style="text-align:right;"><span class="badge-numerical">🧮 NumericalQA</span></div>', unsafe_allow_html=True)
+                    st.markdown('<div style="text-align:right;"><span class="badge-numerical">NumericalQA</span></div>', unsafe_allow_html=True)
                 st.caption(f"Confidence: **{int(current_row['confidence'] * 100)}%**")
 
             # Sub-category & Rationale
@@ -689,7 +690,7 @@ def main():
                 st.metric("Retrieves (Evidence Nav & Bridging)", f"{int(current_row['retrieves_score'] * 100)}%")
                 st.progress(current_row['retrieves_score'])
             with m3:
-                st.metric("Solves (Math Execution (Arithmetic))", f"{int(current_row['solves_score'] * 100)}%")
+                st.metric("Solves (Arithmetic Execution)", f"{int(current_row['solves_score'] * 100)}%")
                 st.progress(current_row['solves_score'])
 
             # Question & Answer Box
@@ -762,7 +763,7 @@ def main():
     # TAB 2: EXHAUSTIVE HIERARCHY TREE (SUM = 8,281)
     # --------------------------------------------------------------------------
     with tab2:
-        st.subheader("Exhaustive 3-Step Hierarchical Decomposition (Sum = 100% of Dataset)")
+        st.subheader("Exhaustive 3-Step Hierarchical Decomposition")
         st.markdown("""
         Every instance in the dataset belongs to exactly **one mutually exclusive path** through the 3-step hierarchy tree.
         The sum across all leaf clusters rigorously equals the entire dataset.
@@ -777,7 +778,7 @@ def main():
         n_num_qa = (df_clustered['tier3_qa_type'] == "NumericalQA").sum()
         n_multi_qa = (df_clustered['tier3_qa_type'] == "Multi-hopQA").sum()
 
-        k1.metric("Total Dataset Instances", f"{total_n:,}", "100.0% Exhaustive")
+        k1.metric("Total Dataset Instances", f"{total_n:,}", "100.0%")
         k2.metric("Step 1: Single-hop", f"{n_single:,}", f"{n_single/total_n:.1%}")
         k3.metric("Step 1: Multi-hop", f"{n_multi_hops:,}", f"{n_multi_hops/total_n:.1%}")
         k4.metric("Step 3: NumericalQA vs Multi-hopQA", f"{n_num_qa:,} / {n_multi_qa:,}")
@@ -786,7 +787,8 @@ def main():
 
         # Step-by-Step Breakdown Visualizations
         st.markdown("### Step-by-Step Division Analytics")
-        col_h1, col_h2 = st.columns(2)
+        col_h1, col_h2, col_h3 = st.columns(3)
+        palette = {"Multi-hopQA": "#1E88E5", "NumericalQA": "#2E7D32"}
 
         with col_h1:
             # Step 1 -> Step 2 Division
@@ -804,9 +806,8 @@ def main():
         with col_h2:
             # Step 2 -> Step 3 Division
             fig_step2, ax_s2 = plt.subplots(figsize=(6.5, 4.2))
-            palette_qa = {"NumericalQA": "#2E7D32", "Multi-hopQA": "#1E88E5"}
             s2_s3 = pd.crosstab(df_clustered['tier2_modality'], df_clustered['tier3_qa_type'])
-            s2_s3.plot(kind='bar', stacked=True, ax=ax_s2, color=[palette_qa["Multi-hopQA"], palette_qa["NumericalQA"]])
+            s2_s3.plot(kind='bar', stacked=True, ax=ax_s2, color=[palette["Multi-hopQA"], palette["NumericalQA"]])
             ax_s2.set_title("Step 2 (Modalities) → Step 3 (QA Type) Distribution", fontsize=11, fontweight='bold')
             ax_s2.set_ylabel("Instance Count")
             ax_s2.set_xlabel("Modality")
@@ -815,8 +816,20 @@ def main():
             plt.tight_layout()
             st.pyplot(fig_step2)
 
-        st.divider()
+        with col_h3:
+            fig1, ax1 = plt.subplots(figsize=(4.8, 3.8))
+            c_counts = df_clustered['tier3_qa_type'].value_counts()
+            labels = [f"{k}\n({v:,} | {v/total_n:.1%})" for k, v in c_counts.items()]
+            ax1.pie(
+                c_counts, labels=labels, startangle=140, 
+                colors=[palette.get(k, '#999999') for k in c_counts.index],
+                wedgeprops=dict(width=0.45, edgecolor='white', linewidth=2)
+            )
+            ax1.set_title(f"1. Final Clustering (N = {total_n:,})", fontsize=11, fontweight='bold')
+            plt.tight_layout()
+            st.pyplot(fig1)
 
+        st.divider()
         # EXHAUSTIVE LEAF CLUSTER TABLE (VERIFICATION THAT SUM = TOTAL)
         st.markdown("### Exhaustive Cluster Verification Table ")
         
