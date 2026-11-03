@@ -817,7 +817,7 @@ def main():
             st.pyplot(fig_step2)
 
         with col_h3:
-            fig1, ax1 = plt.subplots(figsize=(4.8, 3.8))
+            fig1, ax1 = plt.subplots(figsize=((6.5, 4.2))
             c_counts = df_clustered['tier3_qa_type'].value_counts()
             labels = [f"{k}\n({v:,} | {v/total_n:.1%})" for k, v in c_counts.items()]
             ax1.pie(
@@ -825,7 +825,7 @@ def main():
                 colors=[palette.get(k, '#999999') for k in c_counts.index],
                 wedgeprops=dict(width=0.45, edgecolor='white', linewidth=2)
             )
-            ax1.set_title(f"1. Final Clustering (N = {total_n:,})", fontsize=11, fontweight='bold')
+            ax1.set_title(f"Final Clustering (N = {total_n:,})", fontsize=11, fontweight='bold')
             plt.tight_layout()
             st.pyplot(fig1)
 
