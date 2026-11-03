@@ -801,7 +801,7 @@ def main():
             ax_s1.legend(title="Modality", loc="upper left")
             ax_s1.tick_params(axis='x', rotation=0)
             plt.tight_layout()
-            st.pyplot(fig_step1)
+            st.pyplot(fig_step1, use_container_width=True)
 
         with col_h2:
             # Step 2 -> Step 3 Division
@@ -814,10 +814,10 @@ def main():
             ax_s2.legend(title="QA Type", loc="upper right")
             ax_s2.tick_params(axis='x', rotation=0)
             plt.tight_layout()
-            st.pyplot(fig_step2)
+            st.pyplot(fig_step2, use_container_width=True)
 
         with col_h3:
-            fig1, ax1 = plt.subplots(figsize=(6.5, 4.2))
+            fig_step3, ax3 = plt.subplots(figsize=(6.5, 4.2))
             c_counts = df_clustered['tier3_qa_type'].value_counts()
             labels = [f"{k}\n({v:,} | {v/total_n:.1%})" for k, v in c_counts.items()]
             ax1.pie(
@@ -827,7 +827,7 @@ def main():
             )
             ax1.set_title(f"Final Clustering (N = {total_n:,})", fontsize=11, fontweight='bold')
             plt.tight_layout()
-            st.pyplot(fig1)
+            st.pyplot(fig_step3, use_container_width=True)
 
         st.divider()
         # EXHAUSTIVE LEAF CLUSTER TABLE (VERIFICATION THAT SUM = TOTAL)
