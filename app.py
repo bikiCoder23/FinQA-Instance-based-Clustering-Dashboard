@@ -704,26 +704,34 @@ def main():
             # USER-REQUESTED BRIEF CONTEXT BOX (BELOW QUESTION)
             # ==================================================================
             brief_ctx = current_inst.get_brief_context()
-            st.markdown("#### Question Context & Grounding Summary")
-            with st.container():
-                st.markdown(f"""
-                <div class="brief-context-box">
-                    <div style="font-weight:700; color:#0369A1; font-size:1.02rem; margin-bottom:6px;">
-                        Filing Source: {brief_ctx['ticker']} ({brief_ctx['year']}) — {brief_ctx['doc_ref']}
-                    </div>
-                    <div style="color:#334155; font-size:0.92rem; line-height:1.5;">
-                        <strong>Query Focus:</strong> This question queries financial statement disclosures from <strong>{brief_ctx['ticker']}</strong>'s Form 10-K report for fiscal year <strong>{brief_ctx['year']}</strong>.
-                    </div>
-                    <div style="margin-top:8px; font-size:0.9rem; color:#1E293B;">
-                        <strong>Primary Supporting Facts Grounding the Initial Question:</strong>
-                    </div>
+            st.markdown("#### Initial Question Context & Grounding Summary")
+            
+            # Format supporting facts inside the HTML container
+            if brief_ctx['facts']:
+                facts_html_list = []
+                for f in brief_ctx['facts']:
+                    clean_f = re.sub(r'\*\*(.*?)\*\*', r'<strong style="color:#52D18E;">\1</strong>', f)
+                    facts_html_list.append(f"<li style='margin-bottom:6px; color:#A7F3D0; line-height:1.45;'>{clean_f}</li>")
+                facts_inner_html = f"<ul style='margin:8px 0 0 18px; padding:0; color:#52D18E;'>{''.join(facts_html_list)}</ul>"
+            else:
+                facts_inner_html = "<p style='color:#A7F3D0; font-style:italic; font-size:0.9rem; margin-top:6px;'>Supporting facts anchored in contiguous table rows or pre-text disclosures.</p>"
+
+            st.markdown(f"""
+            <div class="brief-context-box">
+                <div style="font-weight:700; color:#52D18E; font-size:1.02rem; margin-bottom:6px;">
+                    Filing Source: {brief_ctx['ticker']} ({brief_ctx['year']}) — {brief_ctx['doc_ref']}
                 </div>
-                """, unsafe_allow_html=True)
-                if brief_ctx['facts']:
-                    for f_item in brief_ctx['facts']:
-                        st.markdown(f"- {f_item}")
-                else:
-                    st.caption("Supporting facts anchored in contiguous table rows or pre-text disclosures.")
+                <div style="color:#A7F3D0; font-size:0.92rem; line-height:1.5;">
+                    <strong style="color:#52D18E;">Query Focus:</strong> This question queries financial statement disclosures from <strong style="color:#52D18E;">{brief_ctx['ticker']}</strong>'s Form 10-K report for fiscal year <strong style="color:#52D18E;">{brief_ctx['year']}</strong>.
+                </div>
+                <div style="margin-top:10px; padding-top:8px; border-top:1px solid #254637;">
+                    <div style="font-size:0.92rem; font-weight:700; color:#52D18E;">
+                        Primary Supporting Facts Grounding the Initial Question:
+                    </div>
+                    {facts_inner_html}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
             # Detailed Context Disclosures & Tables (Preserved below brief context)
             st.markdown("### Detailed Context Disclosures & Tables")
