@@ -795,28 +795,29 @@ def main():
             fig_step1, ax_s1 = plt.subplots(figsize=(6.5, 4.2))
             s1_s2 = pd.crosstab(df_clustered['tier1_hops'], df_clustered['tier2_modality'])
             s1_s2.plot(kind='bar', stacked=True, ax=ax_s1, colormap='Blues')
-            ax_s1.set_title("Step 1 (Hops) → Step 2 (Modalities) Distribution", fontsize=11, fontweight='bold')
+            ax_s1.set_title("Step 1 (Hops) → Step 2 (Modalities)", fontsize=11, fontweight='bold')
             ax_s1.set_ylabel("Instance Count")
             ax_s1.set_xlabel("Reasoning Hops")
-            ax_s1.legend(title="Modality", loc="upper left")
+            ax_s1.legend(title="Modality", loc="upper left", fontsize=8)
             ax_s1.tick_params(axis='x', rotation=0)
             plt.tight_layout()
-            st.pyplot(fig_step1, use_container_width=True)
+            st.pyplot(fig_step1)
 
         with col_h2:
             # Step 2 -> Step 3 Division
             fig_step2, ax_s2 = plt.subplots(figsize=(6.5, 4.2))
             s2_s3 = pd.crosstab(df_clustered['tier2_modality'], df_clustered['tier3_qa_type'])
             s2_s3.plot(kind='bar', stacked=True, ax=ax_s2, color=[palette["Multi-hopQA"], palette["NumericalQA"]])
-            ax_s2.set_title("Step 2 (Modalities) → Step 3 (QA Type) Distribution", fontsize=11, fontweight='bold')
+            ax_s2.set_title("Step 2 (Modalities) → Step 3 (QA Type)", fontsize=11, fontweight='bold')
             ax_s2.set_ylabel("Instance Count")
             ax_s2.set_xlabel("Modality")
-            ax_s2.legend(title="QA Type", loc="upper right")
+            ax_s2.legend(title="QA Type", loc="upper right", fontsize=8)
             ax_s2.tick_params(axis='x', rotation=0)
             plt.tight_layout()
-            st.pyplot(fig_step2, use_container_width=True)
+            st.pyplot(fig_step2)
 
         with col_h3:
+            # Step 3: Final Clustering Donut Chart (Size-Matched to 16:10 aspect ratio)
             fig_step3, ax3 = plt.subplots(figsize=(6.5, 4.2))
             c_counts = df_clustered['tier3_qa_type'].value_counts()
             labels = [f"{k}\n({v:,} | {v/total_n:.1%})" for k, v in c_counts.items()]
@@ -826,8 +827,11 @@ def main():
                 wedgeprops=dict(width=0.45, edgecolor='white', linewidth=2)
             )
             ax3.set_title(f"Final Clustering (N = {total_n:,})", fontsize=11, fontweight='bold')
+            # Prevent bbox_inches='tight' from cropping horizontal whitespace and stretching height
+            fig_step3.text(0.01, 0.5, ' ', alpha=0.0)
+            fig_step3.text(0.99, 0.5, ' ', alpha=0.0)
             plt.tight_layout()
-            st.pyplot(fig_step3, use_container_width=True)
+            st.pyplot(fig_step3)
 
         st.divider()
         # EXHAUSTIVE LEAF CLUSTER TABLE (VERIFICATION THAT SUM = TOTAL)
