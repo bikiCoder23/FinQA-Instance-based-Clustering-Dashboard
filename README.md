@@ -8,4 +8,4 @@ Created a streamlit dashboard to categories the instances in FinQA dataset based
 >FinQA by IBM Research from [🤗 Hugging Face](https://huggingface.co/datasets/ibm-research/finqa)
 
 ## Acknowledgement
-1. Assistant Professor [Dr. Koustav Rudra](https://www.linkedin.com/in/indrajit-banerjee-573044199) of Artificial Intelligence Department, IIT Kharagpur.
+1. Assistant Professor [Dr. Koustav Rudra](https://scholar.google.com/citations?user=t9LUAUQAAAAJ&hl=en) of Artificial Intelligence Department, IIT Kharagpur.
