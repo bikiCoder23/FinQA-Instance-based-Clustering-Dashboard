@@ -1,13 +1,3 @@
-"""
-FinQA Hierarchical LLM Task Paradigm & Exhaustive Clustering Dashboard
-Hostable Streamlit Application for Exploring and Clustering All 8,281 FinQA Instances.
-
-Exhaustive 3-Tier Hierarchy:
-  Step 1: Reasoning Hops (Single-hop vs Multi-hop)
-  Step 2: Modalities (Text-only vs Table-only vs Text-Table)
-  Step 3: QA Type (NumericalQA vs Multi-hopQA)
-"""
-
 import json
 import re
 import os
